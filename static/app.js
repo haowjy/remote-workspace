@@ -1,8 +1,22 @@
 // ---------------------------------------------------------------------------
-// Theme — initialize before Tailwind processes classes
+// Theme — sync with early head initialization
 // ---------------------------------------------------------------------------
-const savedTheme = localStorage.getItem("workspace-theme") || "dark";
+function resolveSavedTheme() {
+  if (window.__workspaceTheme === "dark" || window.__workspaceTheme === "light") {
+    return window.__workspaceTheme;
+  }
+  try {
+    const savedTheme = localStorage.getItem("workspace-theme");
+    if (savedTheme === "dark" || savedTheme === "light") return savedTheme;
+  } catch {
+    // Ignore storage access errors.
+  }
+  return "light";
+}
+
+const savedTheme = resolveSavedTheme();
 document.documentElement.dataset.theme = savedTheme;
+window.__workspaceTheme = savedTheme;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -46,7 +60,7 @@ const CACHE_KEYS = {
 // State
 // ---------------------------------------------------------------------------
 const state = {
-  activeTab: "clipboard",
+  activeTab: "files",
   // Tree: top-level entries loaded eagerly, children loaded on expand
   topLevelEntries: [],
   dirChildren: new Map(),
@@ -64,6 +78,7 @@ const state = {
   clipboardApiMode: "modern",
   pendingUploadFile: null,
   searchDebounceTimer: null,
+  filesMobileMode: "explorer",
   // Screenshots
   screenshotEntries: [],
   screenshotsRequestId: 0,
@@ -88,6 +103,9 @@ const uploadNameInput = $("upload-name-input");
 const uploadBtn = $("upload-btn");
 const clipboardRefreshBtn = $("clipboard-refresh-btn");
 const treeRefreshBtn = $("tree-refresh-btn");
+const fileTreeContainer = $("file-tree-container");
+const fileViewerContainer = $("file-viewer-container");
+const mobileExplorerBackBtn = $("mobile-explorer-back-btn");
 const screenshotsGrid = $("screenshots-grid");
 const screenshotsStatusEl = $("screenshots-status");
 const screenshotsRefreshBtn = $("screenshots-refresh-btn");
@@ -125,7 +143,7 @@ const md = window.markdownit({
 window.mermaid.initialize({
   startOnLoad: false,
   securityLevel: "strict",
-  theme: (localStorage.getItem("workspace-theme") || "dark") === "dark" ? "dark" : "default",
+  theme: savedTheme === "dark" ? "dark" : "default",
 });
 
 // ---------------------------------------------------------------------------
@@ -198,7 +216,9 @@ function updateThemeIcon(theme) {
 // Set initial icon to match saved theme
 updateThemeIcon(savedTheme);
 // Set initial hljs theme to match
-if (savedTheme === "light") {
+if (savedTheme === "dark") {
+  hljsThemeLink.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css";
+} else {
   hljsThemeLink.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css";
 }
 
@@ -207,6 +227,7 @@ function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
   localStorage.setItem("workspace-theme", next);
+  window.__workspaceTheme = next;
 
   updateThemeIcon(next);
 
@@ -301,6 +322,27 @@ function appendVersionQuery(url, entry) {
   return `${url}${separator}v=${version}`;
 }
 
+function isDesktopLayout() {
+  return window.matchMedia("(min-width: 1024px)").matches;
+}
+
+function syncFilesLayout() {
+  if (!fileTreeContainer || !fileViewerContainer) return;
+  const desktop = isDesktopLayout();
+  if (desktop) {
+    fileTreeContainer.classList.remove("hidden");
+    fileViewerContainer.classList.remove("hidden");
+    if (mobileExplorerBackBtn) mobileExplorerBackBtn.classList.add("hidden");
+    return;
+  }
+  const viewerMode = state.filesMobileMode === "viewer";
+  fileTreeContainer.classList.toggle("hidden", viewerMode);
+  fileViewerContainer.classList.toggle("hidden", !viewerMode);
+  if (mobileExplorerBackBtn) {
+    mobileExplorerBackBtn.classList.toggle("hidden", !viewerMode);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tab navigation
 // ---------------------------------------------------------------------------
@@ -312,6 +354,7 @@ function switchTab(tabName) {
   localStorage.setItem("workspace-tab", tabName);
   tabPanels.forEach((p) => p.classList.toggle("hidden", p.id !== `panel-${tabName}`));
   tabButtons.forEach((b) => b.classList.toggle("active", b.dataset.tab === tabName));
+  syncFilesLayout();
   refreshIcons();
 }
 
@@ -319,8 +362,8 @@ tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
 
-// Initialize tab — restore last active or default to clipboard
-switchTab(localStorage.getItem("workspace-tab") || "clipboard");
+// Initialize tab — restore last active or default to files
+switchTab(localStorage.getItem("workspace-tab") || "files");
 
 // ---------------------------------------------------------------------------
 // Lightbox
@@ -638,6 +681,10 @@ function handleSearch(query) {
       searchResultsEl.innerHTML = "";
       expandParentsOf(result.path);
       if (result.type === "directory") {
+        if (!isDesktopLayout()) {
+          state.filesMobileMode = "explorer";
+          syncFilesLayout();
+        }
         toggleDirectory(result.path);
       } else {
         openFile(result.path).catch(handleActionError);
@@ -678,6 +725,10 @@ async function openFile(filePath) {
   viewerRefreshBtn.classList.remove("hidden");
   expandParentsOf(filePath);
   renderTree();
+  if (!isDesktopLayout()) {
+    state.filesMobileMode = "viewer";
+    syncFilesLayout();
+  }
 
   viewerTitle.textContent = filePath;
   setStatus(`Opening ${filePath}...`);
@@ -1227,6 +1278,14 @@ screenshotsRefreshBtn.onclick = () => {
 viewerRefreshBtn.onclick = () => {
   if (state.selectedPath) openFile(state.selectedPath).catch(handleActionError);
 };
+if (mobileExplorerBackBtn) {
+  mobileExplorerBackBtn.onclick = () => {
+    state.filesMobileMode = "explorer";
+    syncFilesLayout();
+  };
+}
+window.addEventListener("resize", syncFilesLayout);
+syncFilesLayout();
 
 // ---------------------------------------------------------------------------
 // Init
