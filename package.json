@@ -1,6 +1,6 @@
 {
   "name": "@haowjy/remote-workspace",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mobile-friendly web workspace for SSH + tmux workflows.",
   "license": "MIT",
   "repository": {
