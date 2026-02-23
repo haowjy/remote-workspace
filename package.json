@@ -1,16 +1,16 @@
 {
-  "name": "@haowjy/remote-workspace",
-  "version": "0.1.4",
-  "description": "Mobile-friendly web workspace for SSH + tmux workflows.",
+  "name": "@haowjy/repo-viewer",
+  "version": "0.2.0",
+  "description": "Mobile-friendly read-only web file browser for repositories.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/haowjy/remote-workspace.git"
+    "url": "git+https://github.com/haowjy/repo-viewer.git"
   },
   "bugs": {
-    "url": "https://github.com/haowjy/remote-workspace/issues"
+    "url": "https://github.com/haowjy/repo-viewer/issues"
   },
-  "homepage": "https://github.com/haowjy/remote-workspace#readme",
+  "homepage": "https://github.com/haowjy/repo-viewer#readme",
   "type": "module",
   "scripts": {
     "dev": "tsx src/launcher.ts",
@@ -38,7 +38,7 @@
     "typescript": "^5.9.2"
   },
   "bin": {
-    "remote-workspace": "dist/launcher.js"
+    "repo-viewer": "dist/launcher.js"
   },
   "publishConfig": {
     "access": "public"

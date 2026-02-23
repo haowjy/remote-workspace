@@ -87,7 +87,7 @@ function parseImageDirectoryPaths(rawValue: string | undefined): string[] {
   for (const candidate of candidates) {
     const normalizedPath = normalizeRepoRelativeDirectoryPath(
       candidate,
-      "REMOTE_WS_IMAGE_DIRS",
+      "REMOTE_WS_SHOW_HIDDEN",
     );
     if (!normalizedPath) {
       continue;
@@ -95,7 +95,7 @@ function parseImageDirectoryPaths(rawValue: string | undefined): string[] {
     parsed.add(normalizedPath);
   }
   if (parsed.size === 0) {
-    throw new Error("Invalid REMOTE_WS_IMAGE_DIRS: provide at least one repo-relative path");
+    throw new Error("Invalid REMOTE_WS_SHOW_HIDDEN: provide at least one repo-relative path");
   }
   return Array.from(parsed);
 }
@@ -113,7 +113,7 @@ const MAX_TREE_ENTRIES = parseIntegerFromEnv("REMOTE_WS_MAX_TREE_ENTRIES", 5000,
   min: 1,
 });
 const CLIPBOARD_DIRECTORY_PATH = path.resolve(REPO_ROOT, CLIPBOARD_DIRECTORY_NAME);
-const IMAGE_DIRECTORY_PATHS = parseImageDirectoryPaths(process.env.REMOTE_WS_IMAGE_DIRS);
+const IMAGE_DIRECTORY_PATHS = parseImageDirectoryPaths(process.env.REMOTE_WS_SHOW_HIDDEN);
 const ALLOWED_IMAGE_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -305,7 +305,7 @@ if (BASIC_AUTH_PASSWORD.length > 0) {
 
     res.setHeader(
       "WWW-Authenticate",
-      'Basic realm="remote-workspace", charset="UTF-8"',
+      'Basic realm="repo-viewer", charset="UTF-8"',
     );
     res.status(401).send("Authentication required");
   });
@@ -1139,13 +1139,13 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`[remote-workspace] root: ${REPO_ROOT}`);
-  console.log(`[remote-workspace] http://${HOST}:${PORT}`);
-  console.log(`[remote-workspace] image directories: ${IMAGE_DIRECTORY_PATHS.join(", ")}`);
+  console.log(`[repo-viewer] root: ${REPO_ROOT}`);
+  console.log(`[repo-viewer] http://${HOST}:${PORT}`);
+  console.log(`[repo-viewer] image directories: ${IMAGE_DIRECTORY_PATHS.join(", ")}`);
   if (BASIC_AUTH_PASSWORD.length > 0) {
-    console.log("[remote-workspace] basic auth: enabled");
+    console.log("[repo-viewer] basic auth: enabled");
   }
   console.log(
-    `[remote-workspace] Tailscale serve example: tailscale serve --bg --https=443 127.0.0.1:${PORT}`,
+    `[repo-viewer] Tailscale serve example: tailscale serve --bg --https=443 127.0.0.1:${PORT}`,
   );
 });

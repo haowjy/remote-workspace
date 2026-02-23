@@ -16,7 +16,7 @@ type ParsedArgs = {
   workspacePassword: string;
   configFile: string;
   alwaysHidden: string | null;
-  imageDirs: string | null;
+  showHidden: string | null;
 };
 
 const currentFilePath = fileURLToPath(import.meta.url);
@@ -32,7 +32,7 @@ Options:
   --config <path>    Config file path (default uses precedence search)
   --port <port>      Listen port (default: REMOTE_WS_PORT or 18080)
   --always-hidden <csv> Extra always-hidden path segments (comma-separated)
-  --image-dirs <csv> Visible image folders (repo-relative, comma-separated)
+  --show-hidden <csv> Show hidden/gitignored folders (repo-relative, comma-separated)
   --install          Force dependency install before start
   --skip-install     Skip install check even if node_modules is missing
   --no-serve         Skip tailscale serve setup
@@ -44,10 +44,10 @@ Options:
 Examples:
   pnpm dev
   pnpm dev -- --repo-root /path/to/repo
-  pnpm dev -- --config ~/.config/remote-workspace/config
+  pnpm dev -- --config ~/.config/repo-viewer/config
   pnpm dev -- --port 18111
   pnpm dev -- --always-hidden .git,.env,.secrets
-  pnpm dev -- --image-dirs .clipboard,.playwright-mcp
+  pnpm dev -- --show-hidden .clipboard,.playwright-mcp
   pnpm dev -- --password
   pnpm dev -- --password mypass --serve
   pnpm dev -- --password mypass --funnel
@@ -162,12 +162,12 @@ function parseConfigPassword(configFilePath: string): string {
 function resolveUserConfigPath(): string {
   const xdgConfigHome = process.env.XDG_CONFIG_HOME;
   if (xdgConfigHome) {
-    return path.resolve(xdgConfigHome, "remote-workspace", "config");
+    return path.resolve(xdgConfigHome, "repo-viewer", "config");
   }
 
   const appData = process.env.APPDATA;
   if (appData) {
-    return path.resolve(appData, "remote-workspace", "config");
+    return path.resolve(appData, "repo-viewer", "config");
   }
 
   const home =
@@ -179,7 +179,7 @@ function resolveUserConfigPath(): string {
   if (!home) {
     return "";
   }
-  return path.resolve(home, ".config", "remote-workspace", "config");
+  return path.resolve(home, ".config", "repo-viewer", "config");
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -195,7 +195,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let configFileFromArg: string | null = null;
   let configFile = "";
   let alwaysHidden: string | null = null;
-  let imageDirs: string | null = null;
+  let showHidden: string | null = null;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -236,12 +236,12 @@ function parseArgs(argv: string[]): ParsedArgs {
         i += 1;
         break;
       }
-      case "--image-dirs": {
+      case "--show-hidden": {
         const next = argv[i + 1];
         if (!next || next.startsWith("--")) {
-          fail("Missing value for --image-dirs.");
+          fail("Missing value for --show-hidden.");
         }
-        imageDirs = parseImageDirsCsv(next, "--image-dirs");
+        showHidden = parseImageDirsCsv(next, "--show-hidden");
         i += 1;
         break;
       }
@@ -287,7 +287,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   if (!existsSync(repoRoot)) {
     fail(`Repository root does not exist: ${repoRoot}`);
   }
-  const projectConfigFile = path.resolve(repoRoot, ".remote-workspace.conf");
+  const projectConfigFile = path.resolve(repoRoot, ".repo-viewer.conf");
   const userConfigFile = resolveUserConfigPath();
 
   if (configFileFromArg) {
@@ -356,7 +356,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     workspacePassword,
     configFile,
     alwaysHidden,
-    imageDirs,
+    showHidden,
   };
 }
 
@@ -402,7 +402,7 @@ function main(): void {
       fail("pnpm is required but not installed.");
     }
     if (!existsSync(path.join(appDir, "package.json"))) {
-      fail(`remote-workspace app not found at: ${appDir}`);
+      fail(`repo-viewer app not found at: ${appDir}`);
     }
     if (args.forceInstall) {
       runSyncOrFail("pnpm", ["--dir", appDir, "install"], "Dependency install failed.");
@@ -429,7 +429,7 @@ function main(): void {
     console.log("Skipping tailscale serve (--no-serve).");
   }
 
-  console.log(`Starting remote-workspace on http://127.0.0.1:${args.port}`);
+  console.log(`Starting repo-viewer on http://127.0.0.1:${args.port}`);
   console.log(`Repo root: ${args.repoRoot}`);
   if (args.passwordEnabled) {
     console.log("Auth: Basic Auth enabled");
@@ -441,12 +441,12 @@ function main(): void {
   } else {
     console.log("Always hidden segments: .git");
   }
-  if (args.imageDirs !== null) {
-    console.log(`Visible image folders: ${args.imageDirs}`);
-  } else if (process.env.REMOTE_WS_IMAGE_DIRS) {
-    console.log(`Visible image folders: ${process.env.REMOTE_WS_IMAGE_DIRS}`);
+  if (args.showHidden !== null) {
+    console.log(`Show hidden folders: ${args.showHidden}`);
+  } else if (process.env.REMOTE_WS_SHOW_HIDDEN) {
+    console.log(`Show hidden folders: ${process.env.REMOTE_WS_SHOW_HIDDEN}`);
   } else {
-    console.log("Visible image folders: .clipboard");
+    console.log("Show hidden folders: .clipboard");
   }
   console.log("");
 
@@ -459,8 +459,8 @@ function main(): void {
   if (args.alwaysHidden !== null) {
     childEnv.REMOTE_WS_ALWAYS_HIDDEN = args.alwaysHidden;
   }
-  if (args.imageDirs !== null) {
-    childEnv.REMOTE_WS_IMAGE_DIRS = args.imageDirs;
+  if (args.showHidden !== null) {
+    childEnv.REMOTE_WS_SHOW_HIDDEN = args.showHidden;
   }
 
   const child = runBuiltServer
